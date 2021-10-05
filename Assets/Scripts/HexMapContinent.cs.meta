@@ -1,0 +1,20 @@
+fileFormatVersion: 2
+guid: 32ad74e8fd3ce124d96cd8eaf628e383
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - HexPrefab: {fileID: 4616795484858006199, guid: 936ced243da9c0c4fa75a6c13036df6f, type: 3}
+  - MeshWater: {instanceID: 0}
+  - MeshFlat: {instanceID: 0}
+  - MeshHill: {instanceID: 0}
+  - MeshMountain: {instanceID: 0}
+  - MatOcean: {instanceID: 0}
+  - MatPlains: {instanceID: 0}
+  - MatGrasslands: {instanceID: 0}
+  - MatMountains: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
