@@ -23,11 +23,6 @@ public class CameraMouseController : MonoBehaviour
 
         Ray mouseRay = Camera.main.ScreenPointToRay(Input.mousePosition);
         // What is the point at which mouse ray intersects y = 0?
-        if (mouseRay.direction.y >= 0)
-        {
-            Debug.LogError("Why is mouse pointing up?");
-            return;
-        }
 
         float rayLength = (mouseRay.origin.y / mouseRay.direction.y);
         Vector3 hitPos = mouseRay.origin - (mouseRay.direction * rayLength);
@@ -54,12 +49,6 @@ public class CameraMouseController : MonoBehaviour
             Camera.main.transform.Translate(diff, Space.World);
             mouseRay = Camera.main.ScreenPointToRay(Input.mousePosition);
 
-            if (mouseRay.direction.y >= 0)
-            {
-                Debug.LogError("Why is mouse pointing up?");
-                return;
-            }
-
             rayLength = (mouseRay.origin.y / mouseRay.direction.y);
             hitPos = mouseRay.origin - (mouseRay.direction * rayLength);
         }
@@ -68,44 +57,26 @@ public class CameraMouseController : MonoBehaviour
         float scrollAmount = -Input.GetAxis("Mouse ScrollWheel");
         float minHeight = 2f;
         float maxHeight = 20f;
-        float lowZoom = minHeight + 3;
-        float highZoom = maxHeight - 3;
+        
         if (Mathf.Abs(scrollAmount) > 0.1f)
         {
             // Move camera towards hitPos
-            Vector3 dir = Camera.main.transform.position - hitPos;
+            Vector3 dir = hitPos - Camera.main.transform.position ;
             Vector3 oldCameraPos = Camera.main.transform.position;
             Camera.main.transform.Translate(dir * scrollAmount * ZoomSpeed, Space.World);
             // Limit zooming
             if (Camera.main.transform.position.y < minHeight || Camera.main.transform.position.y > maxHeight)
                 Camera.main.transform.position = oldCameraPos;
-
-            // Change camera angle
-            Vector3 p = Camera.main.transform.position;
-            if (p.y < lowZoom)
-            {
-                Camera.main.transform.rotation = Quaternion.Euler
-                    (Mathf.Lerp(10, 55, ( (p.y - minHeight) / (lowZoom - minHeight))),
-                     Camera.main.transform.rotation.eulerAngles.y,
-                     Camera.main.transform.rotation.eulerAngles.z
-                     );
-            }
-            else if (p.y > highZoom)
-            {
-                Camera.main.transform.rotation = Quaternion.Euler
-                    (Mathf.Lerp(55, 90, (((maxHeight - p.y)) / (lowZoom - minHeight))),
-                     Camera.main.transform.rotation.eulerAngles.y,
-                     Camera.main.transform.rotation.eulerAngles.z
-                     );
-            }
-            else
-            {
-                Camera.main.transform.rotation = Quaternion.Euler
-                    (55,
-                     Camera.main.transform.rotation.eulerAngles.y,
-                     Camera.main.transform.rotation.eulerAngles.z
-                     );
-            }
         }
+
+        // Maybe put this in an option file
+        // Smooth and continous camera angle all the way
+        Camera.main.transform.rotation = Quaternion.Euler
+            (Mathf.Lerp(20, 90, Camera.main.transform.position.y / (maxHeight * 0.66f)),
+                Camera.main.transform.rotation.eulerAngles.y,
+                Camera.main.transform.rotation.eulerAngles.z
+                );
+
+        // Change first number for boundary to close-to-ground camera angle, second to high over ground camera angle
     }
 }

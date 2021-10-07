@@ -10,6 +10,21 @@ public class HexMap : MonoBehaviour
         GenerateMap();
     }
 
+    private void Update()
+    {
+        // TESTING: Hit spacebar to advance a turn
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            if (units != null)
+            {
+                foreach (Unit u in units)
+                {
+                    u.DoTurn();
+                }
+            }
+        }
+    }
+
     public GameObject HexPrefab;
 
     public Mesh MeshWater;
@@ -26,24 +41,29 @@ public class HexMap : MonoBehaviour
     public GameObject ForestPrefab;
     public GameObject JunglePrefab;
 
-    public float MoistureJungle = 1f;
-    public float MoistureForest = 0.8f;
-    public float MoistureGrasslands = 0.5f;
-    public float MoisturePlains = 0.2f;
+    public GameObject UnitDwarfPrefab;
+
+    [System.NonSerialized] public float MoistureJungle = 0.8f;
+    [System.NonSerialized] public float MoistureForest = 0.6f;
+    [System.NonSerialized] public float MoistureGrasslands = 0.5f;
+    [System.NonSerialized] public float MoisturePlains = 0.3f;
 
     // Tiles with height above x is a y
-    public float HeightMountain = 1f;
-    public float HeightHill = 0.2f;
-    public float HeightFlat = 0.0f;
+    [System.NonSerialized] public float HeightMountain = 0.8f;
+    [System.NonSerialized] public float HeightHill = 0.3f;
+    [System.NonSerialized] public float HeightFlat = 0.0f;
 
     public readonly int NumRows = 30;
     public readonly int NumColoums = 60;
 
-    public bool allowWrapEastWest = true;
-    public bool allowWrapNorthSouth = false;
+    [System.NonSerialized] public bool allowWrapEastWest = true;
+    [System.NonSerialized] public bool allowWrapNorthSouth = false;
 
     private Hex[,] hexes;
     private Dictionary<Hex, GameObject> hexToGameObjectMap;
+
+    private HashSet<Unit> units;
+    private Dictionary<Unit, GameObject> UnitToGameObjectMap;
 
     public Hex getHexAt(int x, int y)
     {
@@ -66,6 +86,18 @@ public class HexMap : MonoBehaviour
             Debug.Log("Getting hex at: " + x + ", " + y + " failed!");
             return null;
         }
+    }
+
+    public Vector3 GetHexPosition(int q, int r)
+    {
+        Hex hex = getHexAt(q, r);
+
+        return GetHexPosition(hex);
+    }
+
+    public Vector3 GetHexPosition(Hex hex)
+    {
+        return hex.PositionFromCamera(Camera.main.transform.position, NumRows, NumColoums);
     }
 
     virtual public void GenerateMap()
@@ -200,4 +232,21 @@ public class HexMap : MonoBehaviour
         return results.ToArray();
     }
 
+    public void SpawnUnitAt(Unit unit, GameObject prefab, int q, int r)
+    {
+        if (units == null)
+        {
+            units = new HashSet<Unit>();
+            UnitToGameObjectMap = new Dictionary<Unit, GameObject>();
+        }
+        Hex myHex = getHexAt(q, r);
+        GameObject myHexGO = hexToGameObjectMap[myHex];
+        unit.SetHex(myHex);
+
+        GameObject unitGO = (GameObject)Instantiate(prefab, myHexGO.transform.position, Quaternion.identity, myHexGO.transform);
+        unit.OnUnitMoved += unitGO.GetComponent<UnitView>().OnUnitMoved;
+
+        units.Add(unit);
+        UnitToGameObjectMap.Add(unit, unitGO);
+    }
 }  // class

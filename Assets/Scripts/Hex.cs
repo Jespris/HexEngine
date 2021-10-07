@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.Linq;
 
 
 // Hex class defines the grid position, world space position, size, neighbors, etc... of a Hex tile
@@ -17,7 +18,7 @@ public class Hex
     public readonly int Q; // Column
     public readonly int R; // Row
     public readonly int S; // Third axis
-    private HexMap hexMap;
+    public readonly HexMap HexMap;
 
     // Data for map generation (and weather effects?)
     public float Elevation;
@@ -32,11 +33,14 @@ public class Hex
         this.Q = q;
         this.R = r;
         this.S = -(q + r);
-        this.hexMap = hexmap;
+
+        this.HexMap = hexmap;
     }
 
     static readonly float HEX_WIDTH_MULTIPLIER = Mathf.Sqrt(3) / 2;
     float radius = 1f;
+
+    HashSet<Unit> units;
 
     public Vector3 Position()
     {
@@ -63,6 +67,10 @@ public class Hex
     {
         return HexWidth();
     }
+    public Vector3 PositionFromCamera()
+    {
+        return HexMap.GetHexPosition(this);
+    }
 
     public Vector3 PositionFromCamera(Vector3 cameraPosition, float numRows, float numCols)
     {
@@ -71,7 +79,7 @@ public class Hex
 
         Vector3 position = Position();  // pos of this hextile
 
-        if (hexMap.allowWrapEastWest)
+        if (HexMap.allowWrapEastWest)
         {
             float widthsFromCamera = (position.x - cameraPosition.x) / mapWidth;
 
@@ -94,7 +102,7 @@ public class Hex
             position.x -= widthsToFix * mapWidth;
         }
 
-        if (hexMap.allowWrapNorthSouth)
+        if (HexMap.allowWrapNorthSouth)
         {
             float heigthsFromCamera = (position.z - cameraPosition.z) / mapHeight;
 
@@ -117,16 +125,34 @@ public class Hex
         // returns distance between hexes
         // TODO: Distance getter is probably wrong
         int dQ = Mathf.Abs(a.Q - b.Q);
-        if (dQ > a.hexMap.NumColoums / 2)
-            dQ = a.hexMap.NumColoums - dQ;
+        if (dQ > a.HexMap.NumColoums / 2)
+            dQ = a.HexMap.NumColoums - dQ;
 
         int dR = Mathf.Abs(a.R - b.R);
-        if (dR > a.hexMap.NumRows / 2)
-            dR = a.hexMap.NumRows - dR;
+        if (dR > a.HexMap.NumRows / 2)
+            dR = a.HexMap.NumRows - dR;
 
         return Mathf.Max(
             dQ, 
             dR, 
             Mathf.Abs(a.S - b.S));
+    }
+    public void AddUnit(Unit unit)
+    {
+        if (units == null)
+            units = new HashSet<Unit>();
+
+        units.Add(unit);  // can't throw the same object in a hashset (WONT ADD A DUPLICATE)
+    }
+
+    public void RemoveUnit(Unit unit)
+    {
+        if (units != null)
+            units.Remove(unit);  // Wont get error if it failed to find the unit in the hashset
+    }
+
+    public Unit[] GetUnits()
+    {
+        return units.ToArray();
     }
 } // class

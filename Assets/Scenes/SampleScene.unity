@@ -425,12 +425,4 @@ MonoBehaviour:
   MatDesert: {fileID: 2100000, guid: fdd01df99ff737d4a86cd84c4cb7e0f3, type: 2}
   ForestPrefab: {fileID: 5915995486483555675, guid: a9c267648411317479ff72bc2662943a, type: 3}
   JunglePrefab: {fileID: 5915995486483555675, guid: a9c267648411317479ff72bc2662943a, type: 3}
-  MoistureJungle: 0.8
-  MoistureForest: 0.6
-  MoistureGrasslands: 0.5
-  MoisturePlains: 0.3
-  HeightMountain: 0.8
-  HeightHill: 0.3
-  HeightFlat: 0
-  allowWrapEastWest: 1
-  allowWrapNorthSouth: 0
+  UnitDwarfPrefab: {fileID: 1656488174951764887, guid: 2f3129cb98a7a8b4c967e787574a380d, type: 3}

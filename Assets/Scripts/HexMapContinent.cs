@@ -10,7 +10,7 @@ public class HexMapContinent : HexMap
         base.GenerateMap();
 
         // MapSeed 
-        // Random.InitState(0);
+        Random.InitState(0);
         // Make some kind of landmass (raised area)
         // MakeRandomLandMasses(8, 2, 8);
         AddContinents(4, 6);
@@ -26,6 +26,10 @@ public class HexMapContinent : HexMap
 
         // Now make sure all the hex visuals are updated to match the hex data
         UpdateHexVisuals();
+
+        // Spawn Units
+        Unit unit = new Unit();
+        SpawnUnitAt(unit, UnitDwarfPrefab, 29, 23);
 
     }
 
