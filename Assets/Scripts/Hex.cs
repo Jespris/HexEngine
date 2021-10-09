@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
+using QPath;
 
 
 // Hex class defines the grid position, world space position, size, neighbors, etc... of a Hex tile
@@ -9,7 +10,7 @@ using System.Linq;
 // We're using three axis for easier hexagonal grid math, initially less intuative
 // https://www.redblobgames.com/grids/hexagons/
 
-public class Hex
+public class Hex : IQPathTile
 {
     // Constriction:  Q + R + S = 0
     // S = -(Q + R)
@@ -23,6 +24,9 @@ public class Hex
     // Data for map generation (and weather effects?)
     public float Elevation;
     public float Moisture;
+
+    // TODO: this is temporary public value
+    public int movementCost = 1;
 
     public bool allowWrapEastWest = true;
     public bool allowWrapNorthSouth = false;
@@ -119,6 +123,10 @@ public class Hex
         }
         return position;
     }
+    public static float CostEstimate(IQPathTile aa, IQPathTile bb)
+    {
+        return Distance((Hex)aa, (Hex)bb);
+    }
 
     public static float Distance(Hex a, Hex b)
     {
@@ -155,4 +163,50 @@ public class Hex
     {
         return units.ToArray();
     }
+
+    public int BaseMovementCostToEnter()
+    {
+        // TODO: factor in terrain type and features
+        return movementCost;
+    }
+
+    Hex[] neighbours;
+
+    #region IQPathTile implementation 
+    public IQPathTile[] GetNeighbours()
+    {
+        if (this.neighbours != null)
+            return this.neighbours;
+        
+        List<Hex> neighbours = new List<Hex>();
+
+        neighbours.Add(HexMap.getHexAt( Q + 1, R + 0));
+        neighbours.Add(HexMap.getHexAt(Q + -1, R + 0));
+        neighbours.Add(HexMap.getHexAt(Q + 0, R + 1));
+        neighbours.Add(HexMap.getHexAt(Q + 0, R + -0));
+        neighbours.Add(HexMap.getHexAt(Q + 1, R + -1));
+        neighbours.Add(HexMap.getHexAt(Q + -1, R + 1));
+
+        List<Hex> neighbours2 = new List<Hex>();
+
+        foreach (Hex h in neighbours)
+        {
+            if (h != null)
+            {
+                neighbours2.Add(h);
+            }
+        }
+
+        this.neighbours = neighbours2.ToArray();
+
+        return this.neighbours;
+
+    }
+
+    public float AggregateCostToEnter(float costSoFar, IQPathTile sourceTile, IQPathUnit unit)
+    {
+        // TODO: we're ignoring source tile right now, this will have to change when we have rivers
+        return ((Unit)unit).AggregateTurnsToEnterHex(this, costSoFar);
+    }
+    #endregion
 } // class

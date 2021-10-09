@@ -1,8 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using QPath;
 
-public class HexMap : MonoBehaviour
+public class HexMap : MonoBehaviour, IQPathWorld
 {
     // Start is called before the first frame update
     void Start()
@@ -20,6 +21,16 @@ public class HexMap : MonoBehaviour
                 foreach (Unit u in units)
                 {
                     u.DoTurn();
+                }
+            }
+        }
+        if (Input.GetKeyDown(KeyCode.P))
+        {
+            if (units != null)
+            {
+                foreach (Unit u in units)
+                {
+                    u.DUMMY_PATHFINDING_FUNCTION();
                 }
             }
         }
@@ -148,7 +159,7 @@ public class HexMap : MonoBehaviour
                 MeshRenderer mr = HexGO.GetComponentInChildren<MeshRenderer>();
                 MeshFilter mf = HexGO.GetComponentInChildren<MeshFilter>();
 
-
+                h.movementCost = 1;
 
                 // Moisutre
                 if (h.Elevation >= HeightFlat && h.Elevation < HeightMountain)
@@ -160,6 +171,7 @@ public class HexMap : MonoBehaviour
                         Vector3 p = HexGO.transform.position;
                         if (h.Elevation > HeightHill)
                             p.y += 0.25f;
+                        h.movementCost = 2;
                         GameObject.Instantiate(JunglePrefab, p, Quaternion.identity, HexGO.transform);
                     }
                     else if (h.Moisture >= MoistureForest)
@@ -169,6 +181,7 @@ public class HexMap : MonoBehaviour
                         Vector3 p = HexGO.transform.position;
                         if (h.Elevation > HeightHill)
                             p.y += 0.25f;
+                        h.movementCost = 2;
                         GameObject.Instantiate(ForestPrefab, p, Quaternion.identity, HexGO.transform);
                     }
                     else if (h.Moisture >= MoistureGrasslands)
@@ -189,10 +202,12 @@ public class HexMap : MonoBehaviour
                 {
                     mr.material = MatMountains;
                     mf.mesh = MeshMountain;
+                    h.movementCost = -99;
                 }
                 else if (h.Elevation >= HeightHill)
                 {
                     mf.mesh = MeshHill;
+                    h.movementCost = 2;
                 }
                 else if (h.Elevation >= HeightFlat)
                 {
@@ -202,10 +217,10 @@ public class HexMap : MonoBehaviour
                 {
                     mr.material = MatOcean;
                     mf.mesh = MeshWater;
+                    h.movementCost = -99;
                 }
 
-                
-                // HexGO.GetComponentInChildren<TextMesh>().text = string.Format("{0}, {1}, {2}", column, row, (int)(h.Elevation * 10));
+                HexGO.GetComponentInChildren<TextMesh>().text = string.Format("{0}, {1}\n{2}", column, row, h.BaseMovementCostToEnter());
             }
         }
     }
