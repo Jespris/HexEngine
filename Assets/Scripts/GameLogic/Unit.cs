@@ -3,80 +3,133 @@ using System.Collections.Generic;
 using UnityEngine;
 using QPath;
 
-public class Unit : IQPathUnit
+public class Unit : MapObject, IQPathUnit
 {
-    public Hex Hex { get; protected set; }  // Hex the unit is in
+    public Unit()
+    {
+        Name = "Dwarf";
+    }
 
-    public delegate void UnitMovedDelegate(Hex oldHex, Hex newHex);
-
-    public event UnitMovedDelegate OnUnitMoved;
-
-    Queue<Hex> hexPath;
+    // List of hexes to wlak trhough, NOTE: first hex is always the one we are standing on
+    List<Hex> hexPath;
 
     bool MOVEMENT_RULES_LIKE_CIV6 = false;
 
-    public string Name = "Dwarf";
-    public int HitPoints = 100;
     public int Strength = 8;
     public int Movement = 2;
-    public int Stamina = 2;  // Movement remaining
+    public int MovementRemaining = 2;
+    public bool isSettler = false;
 
-    public void SetHex(Hex newHex)
+    public Hex[] GetHexPath()
     {
+        return ( this.hexPath == null ) ? null : hexPath.ToArray();
+    }
 
-        Hex oldHex = Hex;
+    override public void SetHex(Hex newHex)
+    {
         if (Hex != null)
             Hex.RemoveUnit(this);
 
-        Hex = newHex;
+        base.SetHex(newHex);
 
         newHex.AddUnit(this);
-
-        if (OnUnitMoved != null)
-        {
-            OnUnitMoved(oldHex, newHex);
-        }
     }
 
-    public void DoTurn()
+    #region Unit Move and other Orders
+    public bool UnitWaitingForOrders()
     {
-        Debug.Log("Doing turn");
+        // returns true if we have movement left but notheing queued up
+        if ( MovementRemaining > 0 && (hexPath == null || hexPath.Count == 0))
+        {
+            // TODO: maybe we have set unit to fortify/alert/skipturn
+            return true;
+        }
+        return false;
+    }
+
+    // Processes one tile worth of movement for the unit
+    // returns true if this should be called immediately again
+    public bool DoMove()
+    {
+        Debug.Log("Doing move");
+
+        if (MovementRemaining <= 0)
+            return false;
         
         // Grab the first hex from the hexPath
         if (hexPath == null || hexPath.Count == 0)
         {
             // no path queued up
-            return;
+            return false;
         }
 
-        Hex newHex = hexPath.Dequeue();  // grabs the first element in the queue
+        Hex hexWeAreLeaving = hexPath[0];
+        Hex newHex = hexPath[1];  // grabs the first element in the queue
 
-        SetHex(newHex);
+        int costToEnter = MovementCostToEnterHex(newHex);
+
+        if (costToEnter > MovementRemaining && MovementRemaining < Movement && MOVEMENT_RULES_LIKE_CIV6)
+        {
+            // we can't enter the hex this turn
+            return false;
+        }
+
+        // Move to the new hex
+        
+        hexPath.RemoveAt(0);
+
+        if (hexPath.Count == 1)
+        {
+            // The only hex left in this list is the tile we are currently standing on, clear the que
+            hexPath = null;
+        }
+
+        SetHex( newHex );
+        MovementRemaining = Mathf.Max(MovementRemaining - costToEnter, 0);
+
+        return hexPath != null && MovementRemaining > 0;
     }
 
+    public void RefreshMovement()
+    {
+        MovementRemaining = Movement;
+    }
+
+    /*
     public void DUMMY_PATHFINDING_FUNCTION()
     {
-        IQPathTile[] pathTiles = QPath.QPath.FindPath(Hex.HexMap, this, Hex, Hex.HexMap.getHexAt(Hex.Q - 3, Hex.R), Hex.CostEstimate);
+        Hex[] pathHexes = QPath.QPath.FindPath<Hex>(Hex.HexMap, this, Hex, Hex.HexMap.getHexAt(Hex.Q - 3, Hex.R), Hex.CostEstimate);
 
-        Debug.Log("Got tile path with length: " + pathTiles.Length);
-
-        Hex[] pathHexes = System.Array.ConvertAll( pathTiles, a => (Hex)a );
-
-        Debug.Log("Got hex path with length: " + pathHexes.Length);
+        Debug.Log("Got hex path with length: " + (pathHexes.Length - 1));
 
         SetHexPath(pathHexes);
     }
+    */
+    #endregion
 
-    public void SetHexPath(Hex[] hexPath)
+    #region Hex Path Setting, Getting and Calculation
+    public void ClearHexPath()
     {
-        this.hexPath = new Queue<Hex>(hexPath);
-        this.hexPath.Dequeue();  // throw the first hex out because it's the one we're standing on
+        this.hexPath = new List<Hex>();
+    }
+
+    public void SetHexPath(Hex[] hexArray)
+    {
+        this.hexPath = new List<Hex>(hexArray);
     }
 
     public int MovementCostToEnterHex(Hex hex)
     {
         // TODO: override base movement cost based on our movement mode + tile type
-        return hex.BaseMovementCostToEnter();
+
+        // DO SOMETHING LIKE THIS
+        /*
+        if (weAreAHillWalker && hex.ElevationType == Hex.ELEVATION_TYPE.HILL)
+            return 1;
+        */
+
+        // TODO: implement different unit types
+        return hex.BaseMovementCostToEnter(false, false, false, false);
     }
 
     public float AggregateTurnsToEnterHex(Hex hex, float turnsToDate)
@@ -94,7 +147,7 @@ public class Unit : IQPathUnit
         if (baseTurnsToEnterHex > 1)
             baseTurnsToEnterHex = 1;
 
-        float turnsRemaining = Stamina / Movement;
+        float turnsRemaining = MovementRemaining / Movement;
 
         float turnsToDateWhole = Mathf.Floor(turnsToDate);
         float turnsToDateFraction = turnsToDate - turnsToDateWhole;
@@ -154,4 +207,5 @@ public class Unit : IQPathUnit
     {
         return 1f;
     }
+    #endregion
 }

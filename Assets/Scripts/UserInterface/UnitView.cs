@@ -28,10 +28,21 @@ public class UnitView : MonoBehaviour
             // Just teleport
             this.transform.position = newPosition;
         }
+        else
+        {
+            // TODO: better signaling system or animation queueing
+            GameObject.FindObjectOfType<HexMap>().AnimationIsPlaying = true;
+        }
     }
 
     private void Update()
     {
         this.transform.position = Vector3.SmoothDamp(this.transform.position, newPosition, ref currentVelocity, smoothTime);
+
+        // TODO: figure out best way to determine end of animation
+        if (Vector3.Distance( this.transform.position, newPosition) < 0.1f)
+        {
+            GameObject.FindObjectOfType<HexMap>().AnimationIsPlaying = false;
+        }
     }
 }

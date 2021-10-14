@@ -29,7 +29,12 @@ public class HexMapContinent : HexMap
 
         // Spawn Units
         Unit unit = new Unit();
+        // for testing, turn on isSettler for this unit
+        unit.isSettler = true;
+        City city = new City();
+
         SpawnUnitAt(unit, UnitDwarfPrefab, 29, 23);
+        SpawnCityAt(city, CityPrefab, 30, 23);
 
     }
 

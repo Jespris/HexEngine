@@ -15,6 +15,7 @@ public class Hex : IQPathTile
     // Constriction:  Q + R + S = 0
     // S = -(Q + R)
 
+    #region Hex variables
     // readonly keyword means variable can only be set once
     public readonly int Q; // Column
     public readonly int R; // Row
@@ -25,13 +26,18 @@ public class Hex : IQPathTile
     public float Elevation;
     public float Moisture;
 
-    // TODO: this is temporary public value
-    public int movementCost = 1;
-
     public bool allowWrapEastWest = true;
     public bool allowWrapNorthSouth = false;
 
+    public enum TERRAIN_TYPE { PLAINS, GRASSLANDS, MARSH, FLOODPLAINS, DESERT, LAKE, OCEAN };
+    public enum ELEVATION_TYPE { FLAT, HILL, MOUNTAIN, WATER };
 
+    public TERRAIN_TYPE TerrainType { get; set; }
+    public ELEVATION_TYPE ElevationType { get; set; }
+
+    public enum FEATURE_TYPE { FOREST, RAINFOREST, MARSH, NONE }
+
+    public FEATURE_TYPE FeatureType { get; set; }
     public Hex(HexMap hexmap, int q, int r)
     {
         this.Q = q;
@@ -39,13 +45,19 @@ public class Hex : IQPathTile
         this.S = -(q + r);
 
         this.HexMap = hexmap;
+
+        units = new HashSet<Unit>();
     }
 
     static readonly float HEX_WIDTH_MULTIPLIER = Mathf.Sqrt(3) / 2;
     float radius = 1f;
 
     HashSet<Unit> units;
+    public Unit[] Units { get { return units.ToArray(); } }
+    public City City { get; protected set; }
+    #endregion
 
+    #region Defining Hex Dimensions and Position
     public Vector3 Position()
     {
         // returns world space position of this hex
@@ -123,6 +135,7 @@ public class Hex : IQPathTile
         }
         return position;
     }
+    #endregion
     public static float CostEstimate(IQPathTile aa, IQPathTile bb)
     {
         return Distance((Hex)aa, (Hex)bb);
@@ -145,6 +158,8 @@ public class Hex : IQPathTile
             dR, 
             Mathf.Abs(a.S - b.S));
     }
+
+    #region Add/Remove Mapobjects
     public void AddUnit(Unit unit)
     {
         if (units == null)
@@ -153,21 +168,55 @@ public class Hex : IQPathTile
         units.Add(unit);  // can't throw the same object in a hashset (WONT ADD A DUPLICATE)
     }
 
+    public void AddCity(City city)
+    {
+        if (this.City != null)
+        {
+            throw new UnityException("Trying to add city to a hex that already has one!");
+        }
+        this.City = city;
+    }
+
+    public void RemoveCity(City city)
+    {
+        if (this.City == null)
+        {
+            Debug.LogError("Trying to remove a city that doesn't exist!");
+            return;
+        }
+        if (this.City != city)
+        {
+            Debug.LogError("Trying to remove a city that isn't ours");
+            return;
+        }
+
+        this.City = null;
+    }
+
     public void RemoveUnit(Unit unit)
     {
         if (units != null)
             units.Remove(unit);  // Wont get error if it failed to find the unit in the hashset
     }
 
-    public Unit[] GetUnits()
-    {
-        return units.ToArray();
-    }
+    #endregion
 
-    public int BaseMovementCostToEnter()
+    public int BaseMovementCostToEnter(bool isHillWalker, bool isForestWalker, bool isFlyer, bool isBoat)
     {
-        // TODO: factor in terrain type and features
-        return movementCost;
+        int moveCost = 1;
+        if (ElevationType == ELEVATION_TYPE.HILL && !isHillWalker)
+            moveCost += 1;
+
+        if (((FeatureType == FEATURE_TYPE.FOREST) || (FeatureType == FEATURE_TYPE.RAINFOREST)) && !isForestWalker)
+            moveCost += 1;
+
+        if (ElevationType == ELEVATION_TYPE.MOUNTAIN && !isFlyer)
+            return -99;
+
+        if (ElevationType == ELEVATION_TYPE.WATER && !isBoat && !isFlyer)
+            return -99;
+
+        return moveCost;
     }
 
     Hex[] neighbours;

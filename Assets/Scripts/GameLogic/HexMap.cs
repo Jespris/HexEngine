@@ -11,31 +11,60 @@ public class HexMap : MonoBehaviour, IQPathWorld
         GenerateMap();
     }
 
+    public bool DeveloperMode = false;
+
+    public bool AnimationIsPlaying = true; 
+
     private void Update()
     {
         // TESTING: Hit spacebar to advance a turn
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            if (units != null)
-            {
-                foreach (Unit u in units)
-                {
-                    u.DoTurn();
-                }
-            }
-        }
-        if (Input.GetKeyDown(KeyCode.P))
-        {
-            if (units != null)
-            {
-                foreach (Unit u in units)
-                {
-                    u.DUMMY_PATHFINDING_FUNCTION();
-                }
-            }
+            StartCoroutine("DoUnitMoves");
         }
     }
 
+    #region UnitMoves
+    IEnumerator DoAllUnitMoves()
+    {
+        if (units != null)
+            {
+                foreach (Unit u in units)
+                {
+                    yield return DoUnitMoves( u );
+                }
+            }
+    }
+
+    public void EndTurn()
+    {
+        // First check if units have enqueued moves 
+            // Do those moves
+        // Now, are any units waiting for orders, if so, halt EndTurn()
+
+        // Heal units that are resting
+        // Reset unit movement
+        foreach (Unit u in units)
+        {
+            u.RefreshMovement();
+        }
+    }
+
+    public IEnumerator DoUnitMoves(Unit u)
+    {
+        while (u.DoMove())
+        {
+            Debug.Log("DoMove returned true, will be called again");
+            // TODO: check if animation is playing, if so wait for it to finish
+            while (AnimationIsPlaying)
+            {
+                yield return null;  // wait a frame
+            }
+        }
+    }
+    #endregion
+
+    #region Class Variables
     public GameObject HexPrefab;
 
     public Mesh MeshWater;
@@ -53,6 +82,7 @@ public class HexMap : MonoBehaviour, IQPathWorld
     public GameObject JunglePrefab;
 
     public GameObject UnitDwarfPrefab;
+    public GameObject CityPrefab;
 
     [System.NonSerialized] public float MoistureJungle = 0.8f;
     [System.NonSerialized] public float MoistureForest = 0.6f;
@@ -72,10 +102,17 @@ public class HexMap : MonoBehaviour, IQPathWorld
 
     private Hex[,] hexes;
     private Dictionary<Hex, GameObject> hexToGameObjectMap;
+    private Dictionary<GameObject, Hex> gameObjectToHexMap;
 
+    // TODO: Separate unit lists for each faction
     private HashSet<Unit> units;
-    private Dictionary<Unit, GameObject> UnitToGameObjectMap;
+    private Dictionary<Unit, GameObject> unitToGameObjectMap;
 
+    private HashSet<City> cities;
+    private Dictionary<City, GameObject> cityToGameObjectMap;
+    #endregion
+
+    #region Getting hexes, gameobjects, and positions for those
     public Hex getHexAt(int x, int y)
     {
         if (hexes == null)
@@ -99,6 +136,25 @@ public class HexMap : MonoBehaviour, IQPathWorld
         }
     }
 
+    public Hex GetHexFromGameObject(GameObject hexGO)
+    {
+        if (gameObjectToHexMap.ContainsKey(hexGO))
+        {
+            return gameObjectToHexMap[hexGO];
+        }
+
+        return null;
+    }
+
+    public GameObject GetHexGO(Hex h)
+    {
+        if (hexToGameObjectMap.ContainsKey(h))
+        {
+            return hexToGameObjectMap[h];
+        }
+        return null;
+    }
+
     public Vector3 GetHexPosition(int q, int r)
     {
         Hex hex = getHexAt(q, r);
@@ -110,12 +166,13 @@ public class HexMap : MonoBehaviour, IQPathWorld
     {
         return hex.PositionFromCamera(Camera.main.transform.position, NumRows, NumColoums);
     }
-
+    #endregion
     virtual public void GenerateMap()
     {
 
         hexes = new Hex[NumColoums, NumRows];
         hexToGameObjectMap = new Dictionary<Hex, GameObject>();
+        gameObjectToHexMap = new Dictionary<GameObject, Hex>();
         // Generate blank (ocean) map 
 
         for (int column = 0; column < NumColoums; column++)
@@ -138,6 +195,10 @@ public class HexMap : MonoBehaviour, IQPathWorld
                 HexGO.GetComponent<HexBehaviour>().HexMap = this;
 
                 hexToGameObjectMap[h] = HexGO;  // assign the key and gameobject to the dictionary
+                gameObjectToHexMap[HexGO] = h;
+
+                h.TerrainType = Hex.TERRAIN_TYPE.OCEAN;
+                h.ElevationType = Hex.ELEVATION_TYPE.WATER;
             }
         }
 
@@ -159,7 +220,9 @@ public class HexMap : MonoBehaviour, IQPathWorld
                 MeshRenderer mr = HexGO.GetComponentInChildren<MeshRenderer>();
                 MeshFilter mf = HexGO.GetComponentInChildren<MeshFilter>();
 
-                h.movementCost = 1;
+                h.FeatureType = Hex.FEATURE_TYPE.NONE;
+                h.ElevationType = Hex.ELEVATION_TYPE.FLAT;
+                h.TerrainType = Hex.TERRAIN_TYPE.GRASSLANDS;
 
                 // Moisutre
                 if (h.Elevation >= HeightFlat && h.Elevation < HeightMountain)
@@ -171,7 +234,10 @@ public class HexMap : MonoBehaviour, IQPathWorld
                         Vector3 p = HexGO.transform.position;
                         if (h.Elevation > HeightHill)
                             p.y += 0.25f;
-                        h.movementCost = 2;
+
+                        h.TerrainType = Hex.TERRAIN_TYPE.GRASSLANDS;
+                        h.FeatureType = Hex.FEATURE_TYPE.RAINFOREST;
+
                         GameObject.Instantiate(JunglePrefab, p, Quaternion.identity, HexGO.transform);
                     }
                     else if (h.Moisture >= MoistureForest)
@@ -181,19 +247,25 @@ public class HexMap : MonoBehaviour, IQPathWorld
                         Vector3 p = HexGO.transform.position;
                         if (h.Elevation > HeightHill)
                             p.y += 0.25f;
-                        h.movementCost = 2;
+
+                        h.TerrainType = Hex.TERRAIN_TYPE.GRASSLANDS;
+                        h.FeatureType = Hex.FEATURE_TYPE.FOREST;
+
                         GameObject.Instantiate(ForestPrefab, p, Quaternion.identity, HexGO.transform);
                     }
                     else if (h.Moisture >= MoistureGrasslands)
                     {
+                        h.TerrainType = Hex.TERRAIN_TYPE.GRASSLANDS;
                         mr.material = MatGrasslands;
                     }
                     else if (h.Moisture >= MoisturePlains)
                     {
+                        h.TerrainType = Hex.TERRAIN_TYPE.PLAINS;
                         mr.material = MatPlains;
                     }
                     else
                     {
+                        h.TerrainType = Hex.TERRAIN_TYPE.DESERT;
                         mr.material = MatDesert;
                     }
                 }
@@ -202,25 +274,33 @@ public class HexMap : MonoBehaviour, IQPathWorld
                 {
                     mr.material = MatMountains;
                     mf.mesh = MeshMountain;
-                    h.movementCost = -99;
+
+                    h.ElevationType = Hex.ELEVATION_TYPE.MOUNTAIN;
+
                 }
                 else if (h.Elevation >= HeightHill)
                 {
                     mf.mesh = MeshHill;
-                    h.movementCost = 2;
+
+                    h.ElevationType = Hex.ELEVATION_TYPE.HILL;
+
                 }
                 else if (h.Elevation >= HeightFlat)
                 {
                     mf.mesh = MeshFlat;
+                    h.ElevationType = Hex.ELEVATION_TYPE.FLAT;
                 }
                 else
                 {
                     mr.material = MatOcean;
                     mf.mesh = MeshWater;
-                    h.movementCost = -99;
+
+                    h.ElevationType = Hex.ELEVATION_TYPE.WATER;
+
                 }
 
-                HexGO.GetComponentInChildren<TextMesh>().text = string.Format("{0}, {1}\n{2}", column, row, h.BaseMovementCostToEnter());
+                if (DeveloperMode)
+                    HexGO.GetComponentInChildren<TextMesh>().text = string.Format("{0}, {1}\n{2}", column, row, h.BaseMovementCostToEnter(false, false, false, false));
             }
         }
     }
@@ -247,21 +327,50 @@ public class HexMap : MonoBehaviour, IQPathWorld
         return results.ToArray();
     }
 
+    #region MapObject Spawners
     public void SpawnUnitAt(Unit unit, GameObject prefab, int q, int r)
     {
         if (units == null)
         {
             units = new HashSet<Unit>();
-            UnitToGameObjectMap = new Dictionary<Unit, GameObject>();
+            unitToGameObjectMap = new Dictionary<Unit, GameObject>();
         }
         Hex myHex = getHexAt(q, r);
         GameObject myHexGO = hexToGameObjectMap[myHex];
         unit.SetHex(myHex);
 
         GameObject unitGO = (GameObject)Instantiate(prefab, myHexGO.transform.position, Quaternion.identity, myHexGO.transform);
-        unit.OnUnitMoved += unitGO.GetComponent<UnitView>().OnUnitMoved;
+        unit.OnObjectMoved += unitGO.GetComponent<UnitView>().OnUnitMoved;
 
         units.Add(unit);
-        UnitToGameObjectMap.Add(unit, unitGO);
+        unitToGameObjectMap.Add(unit, unitGO);
     }
+
+    public void SpawnCityAt ( City city, GameObject prefab, int q , int r)
+    {
+        Debug.Log("Spawning city at: " + q + ", " + r);
+
+        if (cities == null)
+        {
+            cities = new HashSet<City>();
+            cityToGameObjectMap = new Dictionary<City, GameObject>();
+        }
+
+        Hex myHex = getHexAt(q, r);
+        GameObject myHexGO = hexToGameObjectMap[myHex];
+        try
+        {
+            city.SetHex(myHex);
+        }
+        catch (UnityException e)
+        {
+            Debug.LogError(e.Message);
+            return;
+        }
+        GameObject cityGO = (GameObject)Instantiate(prefab, myHexGO.transform.position, Quaternion.identity, myHexGO.transform);
+
+        cities.Add(city);
+        cityToGameObjectMap.Add(city, cityGO);
+    }
+    #endregion
 }  // class
